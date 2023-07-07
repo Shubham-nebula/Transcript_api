@@ -6,6 +6,11 @@ from langchain.callbacks import get_openai_callback
 from azure.storage.blob import BlobServiceClient, BlobClient
 import os
 
+class Question(BaseModel):
+    question: str
+
+class DownloadPayload(BaseModel):
+    blob_name: str
 
 def read_text_from_file(file_path):
     try:
@@ -15,22 +20,6 @@ def read_text_from_file(file_path):
     except Exception as e:
         print(f"Error reading file '{file_path}': {str(e)}")
         return None
-
-def read_text_from_blob(container_name, blob_name):
-    try:
-        connection_string = "DefaultEndpointsProtocol=https;AccountName=azuretestshubham832458;AccountKey=2yEaP59qlgKVv6kEUCA5ARB4wdV3ZRoL2X9zjYCcIxOSYAG1CSBbBlAMPx3uBIe7ilQtSh7purEK+AStvFn8GA==;EndpointSuffix=core.windows.net"  # Replace with your Azure Blob Storage connection string
-        blob_service_client = BlobServiceClient.from_connection_string(connection_string)
-        blob_client = blob_service_client.get_blob_client(container="transcript", blob=blob_name)
-        blob_data = blob_client.download_blob().readall()
-        return blob_data.decode('utf-8')
-    except Exception as e:
-        print(f"Error reading blob '{blob_name}': {str(e)}")
-        return None
-
-app = FastAPI()
-destination_path='transcripts'
-class DownloadPayload(BaseModel):
-    blob_name: str
 
 def download_file_from_blob(container_name, blob_name):
     try:
@@ -52,6 +41,8 @@ def download_file_from_blob(container_name, blob_name):
         print(f"Error downloading file '{blob_name}': {str(e)}")
         return False
 
+app = FastAPI()
+
 @app.post("/download")
 def download_file(payload: DownloadPayload):
     blob_name = payload.blob_name
@@ -62,14 +53,8 @@ def download_file(payload: DownloadPayload):
         return {"message": "File download completed successfully."}
     else:
         return {"message": "File download failed."}
-    
+
 os.environ["OPENAI_API_KEY"] = "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"
-
-class Question(BaseModel):
-    question: str
-
-class DownloadPayload(BaseModel):
-    blob_name: str
 
 def search_questions(questions, context):
     pdf_directory = "./transcripts/"
@@ -86,12 +71,11 @@ def search_questions(questions, context):
         total_cost = cb.total_cost  # Get the total cost from the callback
     return output_data
 
-    
-context=read_text_from_file('context.txt')
+context = read_text_from_file('context.txt')
 print(context)
+
 @app.post("/predict")
 def predict(payload: Question):
     question = payload.question
     answer = search_questions([question], context)[0]  # Pass the context as an argument
     return {"answer": answer['answer'], "source": answer['sources']}
-
