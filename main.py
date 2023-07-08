@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from flask import Flask, request, jsonify
 from pydantic import BaseModel
 from langchain.indexes import VectorstoreIndexCreator
 from langchain.document_loaders import PyPDFDirectoryLoader
@@ -41,18 +41,19 @@ def download_file_from_blob(container_name, blob_name):
         print(f"Error downloading file '{blob_name}': {str(e)}")
         return False
 
-app = FastAPI()
+app = Flask(__name__)
 
-@app.post("/download")
-def download_file(payload: DownloadPayload):
-    blob_name = payload.blob_name
+@app.route("/download", methods=["POST"])
+def download_file():
+    payload = request.json
+    blob_name = payload["blob_name"]
     
     success = download_file_from_blob("transcript", blob_name)
     
     if success:
-        return {"message": "File download completed successfully."}
+        return jsonify({"message": "File download completed successfully."})
     else:
-        return {"message": "File download failed."}
+        return jsonify({"message": "File download failed."})
 
 os.environ["OPENAI_API_KEY"] = "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"
 
@@ -74,8 +75,12 @@ def search_questions(questions, context):
 context = read_text_from_file('context.txt')
 print(context)
 
-@app.post("/predict")
-def predict(payload: Question):
-    question = payload.question
+@app.route("/predict", methods=["POST"])
+def predict():
+    payload = request.json
+    question = payload["question"]
     answer = search_questions([question], context)[0]  # Pass the context as an argument
-    return {"answer": answer['answer'], "source": answer['sources']}
+    return jsonify({"answer": answer['answer'], "source": answer['sources']})
+
+if __name__ == "__main__":
+    app.run()
